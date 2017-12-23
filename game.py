@@ -3,6 +3,9 @@ import pygame
 import time
 import math
 
+from strategy import *
+from state import *
+
 
 class CourtLine:
     def __init__(self):
@@ -23,7 +26,6 @@ class CourtLine:
             rect = [int(_ * factor) for _ in arc[0]]
             rect[0] += int(x_offset)
             rect[1] += int(y_offset)
-            print(rect, arc[1], arc[2])
             pygame.draw.arc(surf, palette.black, rect, arc[1], arc[2], 2)
         for circle in self.circles:
             pos = [int(_ * factor) for _ in circle[0]]
@@ -79,6 +81,8 @@ class MyColor:
         self.white = (255, 255, 255)
         self.black = (0, 0, 0)
         self.red = (255, 0, 0)
+        self.green = (0, 255, 0)
+        self.blue = (0, 0, 255)
 
 
 class Position:
@@ -163,11 +167,11 @@ class Game:
         self.surf = pygame.display.set_mode((800, 600))
 
 
-    def reset_surf(self, palette, court_lines, position):
+    def reset_surf(self, palette, court_lines, state):
         self.surf.fill(palette.white)
         for court_line in court_lines:
             court_line.draw(self.surf, palette, 50, 50, 30)
-        position.draw(self.surf, palette, 50, 50, 30)
+        state.draw(self.surf, palette, 50, 50, 30)
         pygame.display.update()
 
 
@@ -175,9 +179,26 @@ if __name__ == "__main__":
     palette = MyColor()
     game = Game()
     court_line = [Baseline(), Basket(), Paint(), ThreePointLine()]
-    position = Position(court_line[0].get_rect(),
-                        court_line[1].get_basket()[0],
-                        court_line[1].get_basket()[1],
-                        0.9)
-    game.reset_surf(palette, court_line, position)
-    time.sleep(100)
+    state = State(court_line[0].get_rect(),
+                  court_line[1].get_basket()[0],
+                  court_line[1].get_basket()[1],
+                  0.9)
+
+    # Brownian motion
+    offence_strategy = Brownian()
+    defence_strategy = Brownian()
+    while True:
+        # offense strategy
+        for agent_id in range(state.n_agent):
+            if agent_id >= state.get_agent_number() / 2:
+                continue
+            state = offence_strategy.next_state(agent_id, state)
+        game.reset_surf(palette, court_line, state)
+        time.sleep(1)
+        # defence strategy
+        for agent_id in range(state.n_agent):
+            if agent_id < state.get_agent_number() / 2:
+                continue
+            state = defence_strategy.next_state(agent_id, state)
+        game.reset_surf(palette, court_line, state)
+        time.sleep(1)
