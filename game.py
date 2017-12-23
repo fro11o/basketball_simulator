@@ -59,19 +59,19 @@ class Basket(CourtLine):
 class Paint(CourtLine):
     def __init__(self):
         super().__init__()
-        self.lines.append(([5.7, 8.2], [9.3, 8.2]))
-        self.lines.append(([9.3, 8.2], [10.5, 14]))
-        self.lines.append(([10.5, 14], [4.5, 14]))
-        self.lines.append(([4.5, 14], [5.7, 8.2]))
+        self.lines.append(([5.05, 8.2], [9.95, 8.2]))
+        self.lines.append(([9.95, 8.2], [9.95, 14]))
+        self.lines.append(([9.95, 14], [5.05, 14]))
+        self.lines.append(([5.05, 14], [5.05, 8.2]))
         self.arcs.append(([5.7, 6.4, 3.6, 3.6], 0, math.pi))
 
 
 class ThreePointLine(CourtLine):
     def __init__(self):
         super().__init__()
-        self.lines.append(([1.25, 12.425], [1.25, 14]))
-        self.lines.append(([13.75, 12.425], [13.75, 14]))
-        self.arcs.append(([1.25, 6.175, 12.5, 12.5], 0, 1.03 * math.pi))
+        self.lines.append(([0.75, 12.425], [0.75, 14]))
+        self.lines.append(([14.25, 12.425], [14.25, 14]))
+        self.arcs.append(([0.75, 5.675, 13.5, 13.5], 0, 1.03 * math.pi))
 
 
 class MyColor:
