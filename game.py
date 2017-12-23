@@ -1,7 +1,7 @@
 import sys
 import pygame
 import time
-from math import pi
+import math
 
 
 class CourtLine:
@@ -41,6 +41,9 @@ class Baseline(CourtLine):
         self.lines.append(([15, 14], [0, 14]))
         self.lines.append(([0, 14], [0, 0]))
 
+    def get_rect(self):
+        return [0, 0, 15, 14]
+
 
 class Basket(CourtLine):
     def __init__(self):
@@ -48,6 +51,9 @@ class Basket(CourtLine):
         self.lines.append(([6.6, 12.8], [8.4, 12.8]))
         self.lines.append(([7.5, 12.8], [7.5, 12.65]))
         self.circles.append(([7.5, 12.425], 0.225))
+
+    def get_basket(self):
+        return [7.5, 12.425]
 
 
 class Paint(CourtLine):
@@ -57,7 +63,7 @@ class Paint(CourtLine):
         self.lines.append(([9.3, 8.2], [10.5, 14]))
         self.lines.append(([10.5, 14], [4.5, 14]))
         self.lines.append(([4.5, 14], [5.7, 8.2]))
-        self.arcs.append(([5.7, 6.4, 3.6, 3.6], 0, pi))
+        self.arcs.append(([5.7, 6.4, 3.6, 3.6], 0, math.pi))
 
 
 class ThreePointLine(CourtLine):
@@ -65,24 +71,103 @@ class ThreePointLine(CourtLine):
         super().__init__()
         self.lines.append(([1.25, 12.425], [1.25, 14]))
         self.lines.append(([13.75, 12.425], [13.75, 14]))
-        self.arcs.append(([1.25, 6.175, 12.5, 12.5], 0, pi))
+        self.arcs.append(([1.25, 6.175, 12.5, 12.5], 0, 1.03 * math.pi))
 
 
 class MyColor:
     def __init__(self):
         self.white = (255, 255, 255)
         self.black = (0, 0, 0)
+        self.red = (255, 0, 0)
 
+
+class Position:
+    def __init__(self, rect, x_offset, y_offset, factor=1):
+        """
+        Parameters
+        ---------
+        rect: [x, y, width, height]
+            court size
+        x_offset: float
+            start point x
+        y_offset: float
+            start point y
+        factor: int
+            factor of edge of six-direction
+        """
+        self.rect = rect
+        self.x_offset = x_offset
+        self.y_offset = y_offset
+        self.factor = factor
+
+        def virtual_to_real(virtual_pos):
+            real_x = virtual_pos[0] * math.sqrt(3) / 2 * factor + x_offset
+            real_y = virtual_pos[1] / 2 * factor + y_offset
+            return [real_x, real_y]
+
+        def is_in(rect, pos):
+            """test if pos in rect"""
+            x = pos[0]
+            y = pos[1]
+            if x < rect[0] or x > rect[0] + rect[2]:
+                return False
+            if y < rect[1] or y > rect[1] + rect[3]:
+                return False
+            return True
+
+        def dfs(rect, x, y, pos):
+            if ([x, y+2] not in pos and
+                    is_in(rect, virtual_to_real([x, y+2]))):
+                pos.append([x, y+2])
+                dfs(rect, x, y+2, pos)
+            if ([x, y-2] not in pos and
+                    is_in(rect, virtual_to_real([x, y-2]))):
+                pos.append([x, y-2])
+                dfs(rect, x, y-2, pos)
+            if ([x+1, y-1] not in pos and
+                    is_in(rect, virtual_to_real([x+1, y-1]))):
+                pos.append([x+1, y-1])
+                dfs(rect, x+1, y-1, pos)
+            if ([x+1, y+1] not in pos and
+                    is_in(rect, virtual_to_real([x+1, y+1]))):
+                pos.append([x+1, y+1])
+                dfs(rect, x+1, y+1, pos)
+            if ([x-1, y+1] not in pos and
+                    is_in(rect, virtual_to_real([x-1, y+1]))):
+                pos.append([x-1, y+1])
+                dfs(rect, x-1, y+1, pos)
+            if ([x-1, y-1] not in pos and
+                    is_in(rect, virtual_to_real([x-1, y-1]))):
+                pos.append([x-1, y-1])
+                dfs(rect, x-1, y-1, pos)
+
+        self.virtual_pos = []  # store int coordinate
+        dfs(rect, 0, 0, self.virtual_pos)
+
+        self.real_pos = []
+        for pos in self.virtual_pos:
+            self.real_pos.append(virtual_to_real(pos))
+
+    def get_real_pos(self):
+        return self.real_pos
+
+    def draw(self, surf, palette, x_offset, y_offset, factor=1):
+        for pos in self.real_pos:
+            x = int(pos[0] * factor + x_offset)
+            y = int(pos[1] * factor + y_offset)
+            pygame.draw.circle(surf, palette.black, [x, y], 2)
 
 class Game:
     def __init__(self):
         pygame.init()
         self.surf = pygame.display.set_mode((800, 600))
 
-    def reset_surf(self, court_lines, palette):
+
+    def reset_surf(self, palette, court_lines, position):
         self.surf.fill(palette.white)
         for court_line in court_lines:
             court_line.draw(self.surf, palette, 50, 50, 30)
+        position.draw(self.surf, palette, 50, 50, 30)
         pygame.display.update()
 
 
@@ -90,5 +175,9 @@ if __name__ == "__main__":
     palette = MyColor()
     game = Game()
     court_line = [Baseline(), Basket(), Paint(), ThreePointLine()]
-    game.reset_surf(court_line, palette)
-    time.sleep(5)
+    position = Position(court_line[0].get_rect(),
+                        court_line[1].get_basket()[0],
+                        court_line[1].get_basket()[1],
+                        0.9)
+    game.reset_surf(palette, court_line, position)
+    time.sleep(100)
