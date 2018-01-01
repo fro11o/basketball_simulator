@@ -141,17 +141,18 @@ class State:
             number of agent
         """
         self.position = Position(rect, x_offset, y_offset, factor)
-        self.agents = None
         self.n_agent = n_agent
-        self.initial_agents()
+        self.agents = [None] * self.n_agent
 
         self.virtual_actions = [[0, -2], [1, -1], [1, +1],
                                 [0, 2], [-1, +1], [-1, -1], [0, 0]]
 
-    def initial_agents(self):
-        self.agents = []
-        for random_virtual_pos in random.sample(self.position.virtual_pos, self.n_agent):
-            self.agents.append(Agent(random_virtual_pos))
+    def set_agents(self, vpos_offense_agents, vpos_defense_agents):
+        self.agents = [None] * self.n_agent
+        for i, vpos in enumerate(vpos_offense_agents):
+            self.agents[i] = Agent(vpos)
+        for i, vpos in enumerate(vpos_defense_agents):
+            self.agents[i+int(self.n_agent/2)] = Agent(vpos)
 
     def get_agent_number(self):
         return self.n_agent
@@ -249,6 +250,8 @@ class State:
 
         # agent
         for i, agent in enumerate(self.agents):
+            if agent is None:
+                continue
             virtual_pos = agent.get_virtual_pos()
             real_pos = self.position.virtual_to_real(virtual_pos)
             x = int(real_pos[0] * factor + x_offset)

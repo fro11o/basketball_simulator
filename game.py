@@ -2,6 +2,7 @@ import sys
 import pygame
 import time
 import math
+from pygame.locals import *
 
 from strategy import *
 from state import *
@@ -184,6 +185,24 @@ if __name__ == "__main__":
                   court_line[1].get_basket()[1],
                   factor=0.9,
                   n_agent=6)
+
+    game.reset_surf(palette, court_line, state)
+
+    while True:
+        mouse_clicked = False
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == MOUSEBUTTONUP:
+                mouse_x, mouse_y = event.pos
+                if event.button == 1:  # left click
+
+                elif event.button == 3:  # right click
+                else:
+
+
+        state.initial_agents(vpos_agents)
 
     #defense_strategy = Brownian()
     defense_strategy = Oneonone()
