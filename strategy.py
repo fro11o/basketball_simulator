@@ -60,7 +60,7 @@ class Minimax(Strategy):
             moves = state.get_legal_moves()
             ret_s = 100000000
             ret_move = None
-            next_agent_id = (agent_id + 1) % 10
+            next_agent_id = (agent_id + 1) % state.n_agent
             for move in moves:
                 next_state = state.get_successor_state(agent_id, move)
                 if next_agent_id < state.n_agent / 2:
@@ -78,7 +78,7 @@ class Minimax(Strategy):
             moves = state.get_legal_moves()
             ret_s = -100000000
             ret_move = None
-            next_agent_id = (agent_id + 1) % 10
+            next_agent_id = (agent_id + 1) % state.n_agent
             for move in moves:
                 next_state = state.get_successor_state(agent_id, move)
                 if next_agent_id < state.n_agent / 2:
@@ -109,7 +109,7 @@ class Oneonone(Strategy):
 
     def next_move(self, agent_id, state):
         vpos_basket = state.get_basket_virtual_pos()
-        vpos_offense = state.get_agent_virtual_pos(agent_id - 5)
+        vpos_offense = state.get_agent_virtual_pos(agent_id - int(state.n_agent / 2))
         vpos_defense = state.get_agent_virtual_pos(agent_id)
         path_offence = state.get_shortest_path(vpos_offense, vpos_basket)
         try:

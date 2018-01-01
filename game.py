@@ -182,7 +182,8 @@ if __name__ == "__main__":
     state = State(court_line[0].get_rect(),
                   court_line[1].get_basket()[0],
                   court_line[1].get_basket()[1],
-                  0.9)
+                  factor=0.9,
+                  n_agent=6)
 
     #defense_strategy = Brownian()
     defense_strategy = Oneonone()

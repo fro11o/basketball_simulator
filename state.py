@@ -142,15 +142,15 @@ class State:
         """
         self.position = Position(rect, x_offset, y_offset, factor)
         self.agents = None
-        self.initial_agents()
         self.n_agent = n_agent
+        self.initial_agents()
 
         self.virtual_actions = [[0, -2], [1, -1], [1, +1],
                                 [0, 2], [-1, +1], [-1, -1], [0, 0]]
 
     def initial_agents(self):
         self.agents = []
-        for random_virtual_pos in random.sample(self.position.virtual_pos, 10):
+        for random_virtual_pos in random.sample(self.position.virtual_pos, self.n_agent):
             self.agents.append(Agent(random_virtual_pos))
 
     def get_agent_number(self):
