@@ -184,21 +184,26 @@ if __name__ == "__main__":
                   court_line[1].get_basket()[1],
                   0.9)
 
-    # Brownian motion
-    offence_strategy = Brownian()
-    defence_strategy = Brownian()
+    #defense_strategy = Brownian()
+    defense_strategy = Oneonone()
+    #offense_strategy = Brownian()
+    offense_strategy = Minimax()
     while True:
+        moves = []
         # offense strategy
         for agent_id in range(state.n_agent):
             if agent_id >= state.get_agent_number() / 2:
                 continue
-            state = offence_strategy.next_state(agent_id, state)
-        game.reset_surf(palette, court_line, state)
-        time.sleep(1)
-        # defence strategy
+            move = offense_strategy.next_move(agent_id, state)
+            moves.append(move)
+        # defense strategy
         for agent_id in range(state.n_agent):
             if agent_id < state.get_agent_number() / 2:
                 continue
-            state = defence_strategy.next_state(agent_id, state)
+            move = defense_strategy.next_move(agent_id, state)
+            moves.append(move)
         game.reset_surf(palette, court_line, state)
         time.sleep(1)
+        # get new state after moves sequence
+        for i in range(state.n_agent):
+            state = state.get_successor_state(i, moves[i])
