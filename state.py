@@ -240,6 +240,15 @@ class State:
             return True
         return False
 
+    def real_to_close_virtual(self, rpos_mouse):
+        def real_distance(a, b):
+            return pow(pow(a[0] - b[0], 2) + pow(a[1] - b[1], 2), 0.5)
+        for vpos in self.position.virtual_pos:
+            rpos = self.position.virtual_to_real(vpos)
+            if real_distance(rpos_mouse, rpos) < 0.5:
+                return vpos
+        return None
+
     def draw(self, surf, palette, x_offset, y_offset, factor=1):
         # position
         real_pos = self.position.get_real_pos()

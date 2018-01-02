@@ -44,9 +44,11 @@ class Minimax(Strategy):
             if state.position.real_distance(vpos_offense_agents[i],
                     vpos_basket) > real_three_point + 1:
                 ret -= 10000
+        """
         # if offense close to basket
         for agent_id in range(int(state.n_agent / 2)):
             ret += -2 * (state.basket_distance(agent_id))
+        """
         # if offense has space
         for agent_id in range(int(state.n_agent / 2)):
             if state.is_open(agent_id):

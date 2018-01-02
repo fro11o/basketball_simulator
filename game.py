@@ -166,14 +166,26 @@ class Game:
     def __init__(self):
         pygame.init()
         self.surf = pygame.display.set_mode((800, 600))
-
+        self.start_button = [500, 500, 100, 50]
+        self.court_factor = 30
+        self.court_x_offset = 50
+        self.court_y_offset = 50
 
     def reset_surf(self, palette, court_lines, state):
         self.surf.fill(palette.white)
         for court_line in court_lines:
-            court_line.draw(self.surf, palette, 50, 50, 30)
-        state.draw(self.surf, palette, 50, 50, 30)
+            court_line.draw(self.surf, palette, self.court_x_offset, self.court_y_offset, self.court_factor)
+        state.draw(self.surf, palette, self.court_x_offset, self.court_y_offset, self.court_factor)
+        pygame.draw.rect(self.surf, (200, 200, 200), self.start_button)
         pygame.display.update()
+
+    def is_start_button(self, pos):
+        check = True
+        if pos[0] < self.start_button[0] or pos[0] > self.start_button[0] + self.start_button[2]:
+            check = False
+        if pos[1] < self.start_button[1] or pos[1] > self.start_button[1] + self.start_button[3]:
+            check = False
+        return check
 
 
 if __name__ == "__main__":
@@ -188,21 +200,54 @@ if __name__ == "__main__":
 
     game.reset_surf(palette, court_line, state)
 
+    vpos_start_offense = []
+    vpos_start_defense = []
     while True:
         mouse_clicked = False
+        check_ready = False
         for event in pygame.event.get():
             if event.type == QUIT:
                 pygame.quit()
                 sys.exit()
             elif event.type == MOUSEBUTTONUP:
                 mouse_x, mouse_y = event.pos
+                if game.is_start_button([mouse_x, mouse_y]) and\
+                len(vpos_start_offense) == int(state.n_agent / 2) and\
+                len(vpos_start_defense) == int(state.n_agent / 2):
+                    check_ready = True
+                    break
+                rx = mouse_x
+                ry = mouse_y
+                rx -= game.court_x_offset
+                ry -= game.court_y_offset
+                rx = rx / game.court_factor
+                ry = ry / game.court_factor
+                vpos = state.real_to_close_virtual([rx, ry])
+                if vpos is None:
+                    continue
                 if event.button == 1:  # left click
-
+                    if vpos in vpos_start_offense:
+                        tmp = []
+                        for x in vpos_start_offense:
+                            if x != vpos:
+                                tmp.append(x)
+                        vpos_start_offense = tmp
+                    elif len(vpos_start_offense) < int(state.n_agent / 2):
+                        vpos_start_offense.append(vpos)
                 elif event.button == 3:  # right click
-                else:
-
-
-        state.initial_agents(vpos_agents)
+                    if vpos in vpos_start_defense:
+                        tmp = []
+                        for x in vpos_start_defense:
+                            if x != vpos:
+                                tmp.append(x)
+                        vpos_start_defense = tmp
+                    elif len(vpos_start_defense) < int(state.n_agent / 2):
+                        vpos_start_defense.append(vpos)
+        state.set_agents(vpos_start_offense, vpos_start_defense)
+        game.reset_surf(palette, court_line, state)
+        time.sleep(0.1)
+        if check_ready:
+            break
 
     #defense_strategy = Brownian()
     defense_strategy = Oneonone()
