@@ -158,11 +158,23 @@ class State:
         return self.n_agent
 
     def get_legal_moves(self):
+        """
+        def dfs(move, unit_moves, steps):
+            if steps == 0:
+                return [move]
+            ret = []
+            for unit_move in unit_moves:
+                new_move = [sum(x) for x in zip(move, unit_move)]
+                for x in dfs(new_move, unit_moves, steps - 1):
+                    if x not in ret:
+                        ret.append(x)
+                #ret.extend(dfs(new_move, unit_moves, steps - 1))
+            return ret
+        return dfs([0, 0], self.virtual_actions, 3)
+        """
         return self.virtual_actions
 
     def get_successor_state(self, agent_id, move):
-        assert move in self.virtual_actions
-
         agent = self.agents[agent_id]
         virtual_pos = agent.get_virtual_pos()
         new_virtual_pos = [sum(x) for x in zip(virtual_pos, move)]
@@ -173,7 +185,9 @@ class State:
         if not self.position.virtual_is_in(new_virtual_pos):
             check = False
 
-        new_state = copy.deepcopy(self)
+        #new_state = copy.deepcopy(self)
+        new_state = copy.copy(self)
+        new_state.agents = copy.deepcopy(self.agents)
         if check:
             new_state.agents[agent_id].move(move)
         return new_state

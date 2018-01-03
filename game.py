@@ -257,18 +257,18 @@ if __name__ == "__main__":
         moves = []
         # offense strategy
         for agent_id in range(state.n_agent):
-            if agent_id >= state.get_agent_number() / 2:
+            if agent_id >= int(state.get_agent_number() / 2):
                 continue
             move = offense_strategy.next_move(agent_id, state)
             moves.append(move)
         # defense strategy
         for agent_id in range(state.n_agent):
-            if agent_id < state.get_agent_number() / 2:
+            if agent_id < int(state.get_agent_number() / 2):
                 continue
             move = defense_strategy.next_move(agent_id, state)
             moves.append(move)
         game.reset_surf(palette, court_line, state)
-        time.sleep(1)
+        time.sleep(0.5)
         # get new state after moves sequence
         for i in range(state.n_agent):
             state = state.get_successor_state(i, moves[i])
