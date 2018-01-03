@@ -153,12 +153,9 @@ class MotionOffense(Strategy):
             the smallest log_p
         """
         moves = self.get_step_1_moves(state)
-        print("len ", len(moves))
         moves = self.refine_possible_moves(state, moves)
-        print("len ", len(moves))
         for move in moves:
             print(move)
-            time.sleep(1)
         return None, None
         #return move, new_log_p
 
@@ -203,6 +200,7 @@ class MotionOffense(Strategy):
         return ret
 
     def get_step_2_moves(self, state, move, white_list, pass_list):
+        print("white_list", white_list)
         ret = []
         further_search = False
         # case 1: find one agent to screen
@@ -300,9 +298,6 @@ class MotionOffense(Strategy):
                 if agent_id_2 in same_screen_agent:
                     ok = False
                 same_screen_agent.add(agent_id_2)
-                vpos = state.get_agent_virtual_pos(agent_id_2)
-                # add future run_one to same_place, cant run to this place
-                same_place.add(str(vpos))
             # can't two agent be at same place, except screen_one
             for agent_id in range(int(state.n_agent / 2)):
                 if agent_id in move["screen"]:
@@ -314,30 +309,6 @@ class MotionOffense(Strategy):
                 if str(vpos) in same_place:
                     ok = False
                 same_place.add(str(vpos))
-
-            """
-            # add ball_agent to same_place, cant run to this place
-            if len(move["pass"]) > 0:
-                for agent_id_1 in move["pass"]:
-                    agent_id_2 = move["pass"][agent_id_1]
-                    ball_agent_id = agent_id_2
-            else:
-                ball_agent_id = state.ball_agent_id
-            vpos = state.get_agent_virtual_pos(ball_agent_id)
-            same_place.add(str(vpos))
-            # add those agent don't move to same_place
-            for agent_id in range(int(state.n_agent/2)):
-                if agent_id == ball_agent_id:
-                    vpos = state.get_agent_virtual_pos(agent_id)
-                    same_place.add(str(vpos))
-                if agent_id not in move["go"]:
-
-            for agent_id_1 in move["go"]:
-                vpos = move["go"][agent_id_1]
-                if str(vpos) in same_place:
-                    ok = False
-                same_place.add(str(vpos))
-            """
             if ok:
                 new_moves.append(move)
         return new_moves
