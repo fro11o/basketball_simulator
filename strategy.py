@@ -1,5 +1,7 @@
 import state
 import random
+import copy
+import time
 
 
 class Strategy:
@@ -126,3 +128,268 @@ class Oneonone(Strategy):
             dx = 0
             dy = 0
         return [dx, dy]
+
+
+class MotionOffense(Strategy):
+    def __init__(self, p_screen, p_unscreen):
+        super().__init__()
+        self.p_screen = p_screen
+        self.p_unscreen = p_unscreen
+
+    def next_move(self, state, time_step=1):
+        """
+        The action flow would be:
+            1) pass or not
+            2) two agent small group or not
+            3) left agent go or not
+        This method will return the move dict and score log_p
+        Parameters
+        ---------
+        time_step: int
+            search depth
+        Returns
+        ------
+        log_p: float
+            the smallest log_p
+        """
+        moves = self.get_step_1_moves(state)
+        print("len ", len(moves))
+        moves = self.refine_possible_moves(state, moves)
+        print("len ", len(moves))
+        for move in moves:
+            print(move)
+            time.sleep(1)
+        return None, None
+        #return move, new_log_p
+
+    def get_step_1_moves(self, state):
+        """
+        Returns
+        -------
+        ret: list of dict
+            list of possible move
+        """
+        ret = []
+        move = {}
+        move["pass"] = {}
+        move["screen"] = {}
+        move["go"] = {}
+
+        # build white list that could move freely
+        white_list = set()
+        for agent_id in range(int(state.n_agent / 2)):
+            if agent_id == state.ball_agent_id:
+                continue
+            if agent_id in state.screen_one:
+                continue
+            white_list.add(agent_id)
+
+        # case 1: not pass
+        new_move = copy.deepcopy(move)
+        new_white_list = copy.deepcopy(white_list)
+        ret.extend(self.get_step_2_moves(state, new_move, new_white_list, set()))
+        # case 2: find if someone could pass
+        ball_agent_id = state.ball_agent_id
+        v1 = state.get_agent_virtual_pos(ball_agent_id)
+        for agent_id in white_list:
+            v2 = state.get_agent_virtual_pos(agent_id)
+            if v2 in state.stand_place_link[str(v1)]:
+                new_move = copy.deepcopy(move)
+                new_move["pass"][ball_agent_id] = agent_id
+                new_white_list = copy.deepcopy(white_list)
+                new_white_list.add(ball_agent_id)
+                new_white_list.remove(agent_id)
+                ret.extend(self.get_step_2_moves(state, new_move, new_white_list, set()))
+        return ret
+
+    def get_step_2_moves(self, state, move, white_list, pass_list):
+        ret = []
+        further_search = False
+        # case 1: find one agent to screen
+        for agent_id_1 in white_list:
+            if agent_id_1 in pass_list:
+                continue
+            # case 1.1 agent_id_1 choose to pass this round
+            new_move = copy.deepcopy(move)
+            new_white_list = copy.deepcopy(white_list)
+            new_pass_list = copy.deepcopy(pass_list)
+            new_pass_list.add(agent_id_1)
+            ret.extend(self.get_step_2_moves(state, new_move, new_white_list, new_pass_list))
+            further_search = True
+            # case 1.2 agent_id_1 screen for someone
+            for agent_id_2 in white_list:
+                if agent_id_2 == agent_id_1:
+                    continue
+                v1 = state.get_agent_virtual_pos(agent_id_1)
+                v2 = state.get_agent_virtual_pos(agent_id_2)
+                if v2 not in state.stand_place_link[str(v1)]:
+                    continue
+                new_move = copy.deepcopy(move)
+                new_move["screen"][agent_id_1] = agent_id_2
+                new_white_list = copy.deepcopy(white_list)
+                new_white_list.remove(agent_id_1)
+                new_white_list.remove(agent_id_2)
+                new_pass_list = copy.deepcopy(pass_list)
+                ret.extend(self.get_step_2_moves(state, new_move, new_white_list, new_pass_list))
+                further_search = True
+            # state.screen_on could also be agent_id_2
+            for agent_id_2 in state.screen_one:
+                if agent_id_2 == agent_id_1:
+                    continue
+                v1 = state.get_agent_virtual_pos(agent_id_1)
+                v2 = state.get_agent_virtual_pos(agent_id_2)
+                if v2 not in state.stand_place_link[str(v1)]:
+                    continue
+                new_move = copy.deepcopy(move)
+                new_move["screen"][agent_id_1] = agent_id_2
+                new_white_list = copy.deepcopy(white_list)
+                new_white_list.remove(agent_id_1)
+                new_white_list.remove(agent_id_2)
+                new_pass_list = copy.deepcopy(pass_list)
+                ret.extend(self.get_step_2_moves(state, new_move, new_white_list, new_pass_list))
+                further_search = True
+            break
+        if further_search:
+            return ret
+        else:
+            new_move = copy.deepcopy(move)
+            new_white_list = copy.deepcopy(white_list)
+            return self.get_step_3_moves(state, new_move, new_white_list, set())
+
+    def get_step_3_moves(self, state, move, white_list, pass_list):
+        ret = []
+        further_search = False
+        # casee 1: find one agent to go
+        for agent_id_1 in white_list:
+            if agent_id_1 in pass_list:
+                continue
+            # case 1.1 agent_id_1 choose to pass this round
+            new_move = copy.deepcopy(move)
+            new_white_list = copy.deepcopy(white_list)
+            new_pass_list = copy.deepcopy(pass_list)
+            new_pass_list.add(agent_id_1)
+            ret.extend(self.get_step_3_moves(state, new_move, new_white_list, new_pass_list))
+            further_search = True
+            # case 1.2 agent_id_1 choose to run
+            v1 = state.get_agent_virtual_pos(agent_id_1)
+            for v2 in state.stand_place_link[str(v1)]:
+                new_move = copy.deepcopy(move)
+                new_move["go"][agent_id_1] = v2
+                new_white_list = copy.deepcopy(white_list)
+                new_white_list.remove(agent_id_1)
+                new_pass_list = copy.deepcopy(pass_list)
+                ret.extend(self.get_step_3_moves(state, new_move, new_white_list, new_pass_list))
+                further_search = True
+            break
+        if further_search:
+            return ret
+        else:
+            new_move = copy.deepcopy(move)
+            return [new_move]
+
+    def refine_possible_moves(self, state, moves):
+        """remove those move that would result two agent run into same place"""
+        new_moves = []
+        for move in moves:
+            ok = True
+            # can't two agent screen for same agent
+            same_screen_agent = set()
+            same_place = set()
+            for agent_id_1 in move["screen"]:
+                agent_id_2 = move["screen"][agent_id_1]
+                if agent_id_2 in same_screen_agent:
+                    ok = False
+                same_screen_agent.add(agent_id_2)
+                vpos = state.get_agent_virtual_pos(agent_id_2)
+                # add future run_one to same_place, cant run to this place
+                same_place.add(str(vpos))
+            # can't two agent be at same place, except screen_one
+            for agent_id in range(int(state.n_agent / 2)):
+                if agent_id in move["screen"]:
+                    continue
+                if agent_id not in move["go"]:
+                    vpos = state.get_agent_virtual_pos(agent_id)
+                else:
+                    vpos = move["go"][agent_id]
+                if str(vpos) in same_place:
+                    ok = False
+                same_place.add(str(vpos))
+
+            """
+            # add ball_agent to same_place, cant run to this place
+            if len(move["pass"]) > 0:
+                for agent_id_1 in move["pass"]:
+                    agent_id_2 = move["pass"][agent_id_1]
+                    ball_agent_id = agent_id_2
+            else:
+                ball_agent_id = state.ball_agent_id
+            vpos = state.get_agent_virtual_pos(ball_agent_id)
+            same_place.add(str(vpos))
+            # add those agent don't move to same_place
+            for agent_id in range(int(state.n_agent/2)):
+                if agent_id == ball_agent_id:
+                    vpos = state.get_agent_virtual_pos(agent_id)
+                    same_place.add(str(vpos))
+                if agent_id not in move["go"]:
+
+            for agent_id_1 in move["go"]:
+                vpos = move["go"][agent_id_1]
+                if str(vpos) in same_place:
+                    ok = False
+                same_place.add(str(vpos))
+            """
+            if ok:
+                new_moves.append(move)
+        return new_moves
+
+    def get_reward(self, state, move):
+        log_p = 0
+        if len(move["pass"]) == 0:
+            new_ball_agent_id = state.ball_agent_id
+        else:
+            v = state.ball_agent_id
+            new_ball_agent_id = move["pass"][v]
+        unscreen_run = []
+        screen_run = []
+        for agent_id in move["go"]:
+            v = move["go"][agent_id]
+            # if not in pass region, ignore them
+            if v not in state.stand_place_link[str(new_ball_agent_id)]:
+                continue
+            if agent_id in state.run_one:
+                log_p += math.log(self.screen)
+            else:
+                log_p += math.log(self.unscreen)
+        return log_p
+
+    def get_successor_state(self, state, move):
+        pass
+
+    """
+    def get_successor_state(self, agent_id, move):
+        agent = self.agents[agent_id]
+        virtual_pos = agent.get_virtual_pos()
+        new_virtual_pos = [sum(x) for x in zip(virtual_pos, move)]
+
+        check = True
+        if not self.virtual_pos_is_null(agent_id, new_virtual_pos):
+            check = False
+        if not self.position.virtual_is_in(new_virtual_pos):
+            check = False
+
+        #new_state = copy.deepcopy(self)
+        new_state = copy.copy(self)
+        new_state.my_hard_copy()
+        #new_state.agents = copy.deepcopy(self.agents)
+        if check:
+            new_state.agents[agent_id].move(move)
+        return new_state
+    """
+
+
+class MotionDefense(Strategy):
+    def __init__(self):
+        super().__init__()
+
+    def next_state(self, state, depth=1):
+        pass

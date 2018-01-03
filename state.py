@@ -142,17 +142,46 @@ class State:
         """
         self.position = Position(rect, x_offset, y_offset, factor)
         self.n_agent = n_agent
-        self.agents = [None] * self.n_agent
+        self.agents = []
+        self.ball_agent_id = None
+        self.stand_place = None
+        self.stand_place_link = None
+        self.screen_one = []
+        self.run_one = []
+        self.log_p = 0
 
         self.virtual_actions = [[0, -2], [1, -1], [1, +1],
                                 [0, 2], [-1, +1], [-1, -1], [0, 0]]
 
-    def set_agents(self, vpos_offense_agents, vpos_defense_agents):
-        self.agents = [None] * self.n_agent
+    def set_agents(self, vpos_offense_agents, vpos_defense_agents, vpos_stand_place_link=None):
+        self.agents = [None] * (len(vpos_offense_agents) + len(vpos_defense_agents))
         for i, vpos in enumerate(vpos_offense_agents):
             self.agents[i] = Agent(vpos)
         for i, vpos in enumerate(vpos_defense_agents):
-            self.agents[i+int(self.n_agent/2)] = Agent(vpos)
+            self.agents[i+len(vpos_offense_agents)] = Agent(vpos)
+        if vpos_stand_place_link is not None:
+            self.stand_place = []
+            self.stand_place_link = {}
+            for pair in vpos_stand_place_link:
+                if pair[0] not in self.stand_place:
+                    self.stand_place.append(pair[0])
+                if pair[1] not in self.stand_place:
+                    self.stand_place.append(pair[1])
+                if str(pair[0]) not in self.stand_place_link:
+                    self.stand_place_link[str(pair[0])] = []
+                if pair[1] not in self.stand_place_link[str(pair[0])]:
+                    self.stand_place_link[str(pair[0])].append(pair[1])
+                if str(pair[1]) not in self.stand_place_link:
+                    self.stand_place_link[str(pair[1])] = []
+                if pair[0] not in self.stand_place_link[str(pair[1])]:
+                    self.stand_place_link[str(pair[1])].append(pair[0])
+        self.ball_agent_id = 0
+
+    def my_hard_copy(self):
+        new_state.agents = copy.deepcopy(self.agents)
+        self.agents = copy.deepcopy(self.agents)
+        self.screen_one = copy.deepcopy(self.screen_one)
+        self.run_one = copy.deepcopy(self.run_one)
 
     def get_agent_number(self):
         return self.n_agent
@@ -187,7 +216,8 @@ class State:
 
         #new_state = copy.deepcopy(self)
         new_state = copy.copy(self)
-        new_state.agents = copy.deepcopy(self.agents)
+        new_state.my_hard_copy()
+        #new_state.agents = copy.deepcopy(self.agents)
         if check:
             new_state.agents[agent_id].move(move)
         return new_state
@@ -263,13 +293,27 @@ class State:
                 return vpos
         return None
 
-    def draw(self, surf, palette, x_offset, y_offset, factor=1):
+    def draw(self, surf, palette, x_offset, y_offset, factor=1, link=False):
         # position
         real_pos = self.position.get_real_pos()
         for pos in real_pos:
             x = int(pos[0] * factor + x_offset)
             y = int(pos[1] * factor + y_offset)
             pygame.draw.circle(surf, palette.black, [x, y], 2)
+
+        # link
+        if link:
+            for v1 in self.stand_place:
+                for v2 in self.stand_place_link[str(v1)]:
+                    real_pos = self.position.virtual_to_real(v1)
+                    x = int(real_pos[0] * factor + x_offset)
+                    y = int(real_pos[1] * factor + y_offset)
+                    surf_v1 = [x, y]
+                    real_pos = self.position.virtual_to_real(v2)
+                    x = int(real_pos[0] * factor + x_offset)
+                    y = int(real_pos[1] * factor + y_offset)
+                    surf_v2 = [x, y]
+                    pygame.draw.line(surf, palette.green, surf_v1, surf_v2, 2)
 
         # agent
         for i, agent in enumerate(self.agents):
@@ -281,12 +325,21 @@ class State:
             y = int(real_pos[1] * factor + y_offset)
             r_agent = int(1. * self.position.get_real_distance() / 2 * factor)
             if i < self.n_agent / 2:
-                pygame.draw.circle(surf, palette.red, [x, y], r_agent)
-                font = pygame.font.Font(None, 24)
-                agent_id_text = font.render(str(i), 1, (255, 255, 255))
-                surf.blit(agent_id_text, [x - int(r_agent / 2), y - int(r_agent / 2)])
+                if i == self.ball_agent_id:  # draw ball_agent_id
+                    pygame.draw.circle(surf, palette.red, [x, y], r_agent)
+                    pygame.draw.circle(surf, palette.white, [x, y], r_agent - 2)
+                    font = pygame.font.Font(None, 24)
+                    agent_id_text = font.render(str(i), 1, (0, 0, 0))
+                    surf.blit(agent_id_text, [x - int(r_agent / 2), y - int(r_agent / 2)])
+                else:
+                    pygame.draw.circle(surf, palette.red, [x, y], r_agent)
+                    font = pygame.font.Font(None, 24)
+                    agent_id_text = font.render(str(i), 1, (255, 255, 255))
+                    surf.blit(agent_id_text, [x - int(r_agent / 2), y - int(r_agent / 2)])
             else:
                 pygame.draw.circle(surf, palette.blue, [x, y], r_agent)
                 font = pygame.font.Font(None, 24)
                 agent_id_text = font.render(str(i), 1, (255, 255, 255))
                 surf.blit(agent_id_text, [x - int(r_agent / 2), y - int(r_agent / 2)])
+
+

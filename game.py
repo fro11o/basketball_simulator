@@ -171,11 +171,11 @@ class Game:
         self.court_x_offset = 50
         self.court_y_offset = 50
 
-    def reset_surf(self, palette, court_lines, state):
+    def reset_surf(self, palette, court_lines, state, link=False):
         self.surf.fill(palette.white)
         for court_line in court_lines:
             court_line.draw(self.surf, palette, self.court_x_offset, self.court_y_offset, self.court_factor)
-        state.draw(self.surf, palette, self.court_x_offset, self.court_y_offset, self.court_factor)
+        state.draw(self.surf, palette, self.court_x_offset, self.court_y_offset, self.court_factor, link)
         pygame.draw.rect(self.surf, (200, 200, 200), self.start_button)
         pygame.display.update()
 
@@ -188,18 +188,43 @@ class Game:
         return check
 
 
-if __name__ == "__main__":
-    palette = MyColor()
-    game = Game()
-    court_line = [Baseline(), Basket(), Paint(), ThreePointLine()]
-    state = State(court_line[0].get_rect(),
-                  court_line[1].get_basket()[0],
-                  court_line[1].get_basket()[1],
-                  factor=0.9,
-                  n_agent=6)
+def get_vpos_link(game, state):
+    vpos_stand_place_link = []
+    vpos_pair = []
+    while True:
+        mouse_clicked = False
+        check_ready = False
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == MOUSEBUTTONUP:
+                mouse_x, mouse_y = event.pos
+                if game.is_start_button([mouse_x, mouse_y]):
+                    check_ready = True
+                    break
+                rx = mouse_x
+                ry = mouse_y
+                rx -= game.court_x_offset
+                ry -= game.court_y_offset
+                rx = rx / game.court_factor
+                ry = ry / game.court_factor
+                vpos = state.real_to_close_virtual([rx, ry])
+                if vpos is None:
+                    continue
+                if event.button == 1:  # left click
+                    vpos_pair.append(vpos)
+                    if len(vpos_pair) == 2:
+                        vpos_stand_place_link.append(vpos_pair[:])
+                        vpos_pair = []
+        state.set_agents([], [], vpos_stand_place_link)
+        game.reset_surf(palette, court_line, state, link=True)
+        time.sleep(0.1)
+        if check_ready:
+            break
 
-    game.reset_surf(palette, court_line, state)
 
+def get_vpos_start(game, state):
     vpos_start_offense = []
     vpos_start_defense = []
     while True:
@@ -244,18 +269,92 @@ if __name__ == "__main__":
                     elif len(vpos_start_defense) < int(state.n_agent / 2):
                         vpos_start_defense.append(vpos)
         state.set_agents(vpos_start_offense, vpos_start_defense)
-        game.reset_surf(palette, court_line, state)
+        game.reset_surf(palette, court_line, state, link=True)
         time.sleep(0.1)
         if check_ready:
             break
 
+
+if __name__ == "__main__":
+    palette = MyColor()
+    game = Game()
+    court_line = [Baseline(), Basket(), Paint(), ThreePointLine()]
+    state = State(court_line[0].get_rect(),
+                  court_line[1].get_basket()[0],
+                  court_line[1].get_basket()[1],
+                  factor=0.9,
+                  n_agent=6)
+
+    game.reset_surf(palette, court_line, state)
+
+    get_vpos_link(game, state)
+    get_vpos_start(game, state)
+    """
+    vpos_start_offense = []
+    vpos_start_defense = []
+    vpos_stand_place_link = []
+    while True:
+        mouse_clicked = False
+        check_ready = False
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == MOUSEBUTTONUP:
+                mouse_x, mouse_y = event.pos
+                if game.is_start_button([mouse_x, mouse_y]) and\
+                len(vpos_start_offense) == int(state.n_agent / 2) and\
+                len(vpos_start_defense) == int(state.n_agent / 2):
+                    check_ready = True
+                    break
+                rx = mouse_x
+                ry = mouse_y
+                rx -= game.court_x_offset
+                ry -= game.court_y_offset
+                rx = rx / game.court_factor
+                ry = ry / game.court_factor
+                vpos = state.real_to_close_virtual([rx, ry])
+                if vpos is None:
+                    continue
+                if event.button == 1:  # left click
+                    if vpos in vpos_start_offense:
+                        tmp = []
+                        for x in vpos_start_offense:
+                            if x != vpos:
+                                tmp.append(x)
+                        vpos_start_offense = tmp
+                    elif len(vpos_start_offense) < int(state.n_agent / 2):
+                        vpos_start_offense.append(vpos)
+                elif event.button == 3:  # right click
+                    if vpos in vpos_start_defense:
+                        tmp = []
+                        for x in vpos_start_defense:
+                            if x != vpos:
+                                tmp.append(x)
+                        vpos_start_defense = tmp
+                    elif len(vpos_start_defense) < int(state.n_agent / 2):
+                        vpos_start_defense.append(vpos)
+        vpos_start_offense, vpos_start_defense = get_vpos_start(game, state)
+        state.set_agents(vpos_start_offense, vpos_start_defense, [])
+        game.reset_surf(palette, court_line, state)
+        time.sleep(0.1)
+        if check_ready:
+            break
+    """
+
+    p_screen = 0.2  # prob that defense_agent could catch up
+    p_unscreen = 0.8  # prob that defense_agent could catch up under screen
+
     #defense_strategy = Brownian()
-    defense_strategy = Oneonone()
+    defense_strategy = MotionDefense()
     #offense_strategy = Brownian()
-    offense_strategy = Minimax()
+    offense_strategy = MotionOffense(p_screen, p_unscreen)
+
+    """
     while True:
         moves = []
         # offense strategy
+
         for agent_id in range(state.n_agent):
             if agent_id >= int(state.get_agent_number() / 2):
                 continue
@@ -272,3 +371,12 @@ if __name__ == "__main__":
         # get new state after moves sequence
         for i in range(state.n_agent):
             state = state.get_successor_state(i, moves[i])
+    """
+    time_step = 1
+
+    while True:
+        move, log_p = offense_strategy.next_move(state, time_step)
+        time_step -= 1
+        if time_step == 0:
+            break
+    time.sleep(10000)
