@@ -138,7 +138,7 @@ class MotionOffense(Strategy):
         self.p_screen = p_screen
         self.p_unscreen = p_unscreen
 
-    def next_move(self, state, time_step):
+    def next_move(self, state, time_step, search_depth, n_beam):
         """
         The action flow would be:
             1) pass or not
@@ -148,27 +148,43 @@ class MotionOffense(Strategy):
         Parameters
         ---------
         time_step: int
-            search depth
+            search_time_depth (left time step in real problem)
+        search_depth: int
+            search_dfs_depth
+        n_beam: int
+            # of beam search
         Returns
         ------
-        move: move structure
+        moves: list(move structure), len=n_beam
             move that could lead to smallest log_p
-        log_p: float
-            log probability of successful defense
         """
-        if time_step == 0:
-            return None, state.log_p
+        def get_best_log_p(state, t):
+            if t == 0:
+                return None, state.log_p
+            moves = self.get_step_1_moves(state)
+            moves = self.refine_possible_moves(state, moves)
+            best_move = None
+            best_log_p = None
+            for move in moves:
+                new_state = self.get_successor_state(state, move)
+                final_log_p = get_best_log_p(new_state, t - 1)
+                if best_move is None or final_log_p < best_log_p:
+                    best_move = move
+                    best_log_p = final_log_p
+            return best_log_p
+
         moves = self.get_step_1_moves(state)
         moves = self.refine_possible_moves(state, moves)
+        print("len(moves)", len(moves))
         cands = []
         for move in moves:
             new_state = self.get_successor_state(state, move)
-            _, successor_log_p = self.next_move(new_state, time_step - 1)
-            cands.append((new_state.log_p + successor_log_p, move))
-            #print(move, self.get_reward(state, move))
-        cands = sorted(cands, key=itemgetter(0))
-        #return move, new_log_p
-        return cands[0][1], cands[0][0]
+            new_log_p = get_best_log_p(new_state, min(time_step - 1, search_depth - 1))
+            cands.append((move, new_log_p))
+        cands = sorted(cands, key=itemgetter(1))
+        cands_moves = [x[0] for x in cands]
+        cands_future_log_p = [x[1] for x in cands]
+        return cands_moves[:n_beam], cands_future_log_p[:n_beam]
 
     def get_step_1_moves(self, state):
         """
@@ -252,11 +268,6 @@ class MotionOffense(Strategy):
                 v2 = state.get_agent_virtual_pos(agent_id_2)
                 if v2 not in state.stand_place_link[str(v1)]:
                     continue
-                print(state.screen_one)
-                print(state.run_one)
-                print(new_move)
-                print(new_white_list)
-                print(new_pass_list)
                 new_move = copy.deepcopy(move)
                 new_move["screen"][agent_id_1] = agent_id_2
                 new_white_list = copy.deepcopy(white_list)
@@ -276,8 +287,12 @@ class MotionOffense(Strategy):
         ret = []
         further_search = False
         # casee 1: find one agent to go
-        for agent_id_1 in white_list:
+        for agent_id_1 in range(int(state.n_agent / 2)):
+            if agent_id_1 not in white_list and agent_id_1 not in state.screen_one:
+                continue
             if agent_id_1 in pass_list:
+                continue
+            if agent_id_1 in state.screen_one and agent_id_1 in move["go"]:
                 continue
             # case 1.1 agent_id_1 choose to pass this round
             new_move = copy.deepcopy(move)
@@ -292,7 +307,8 @@ class MotionOffense(Strategy):
                 new_move = copy.deepcopy(move)
                 new_move["go"][agent_id_1] = v2
                 new_white_list = copy.deepcopy(white_list)
-                new_white_list.remove(agent_id_1)
+                if agent_id_1 in new_white_list:
+                    new_white_list.remove(agent_id_1)
                 new_pass_list = copy.deepcopy(pass_list)
                 ret.extend(self.get_step_3_moves(state, new_move, new_white_list, new_pass_list))
                 further_search = True

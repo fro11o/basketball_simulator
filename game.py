@@ -333,12 +333,31 @@ if __name__ == "__main__":
             state = state.get_successor_state(i, moves[i])
     """
     time_step = args.time_step
+    search_depth = 2
+    n_beam = 3
 
-    while True:
-        move, log_p = offense_strategy.next_move(state, time_step)
-        print("QQ", move, log_p)
+    sequence_pool = [(state, [])]
+
+    while time_step > 0:
+        print("time_step", time_step)
+        sorting_pool = []
+        for s in sequence_pool:
+            state = s[0]
+            sequence = s[1]
+            next_moves, future_log_p = offense_strategy.next_move(state, time_step, search_depth, n_beam)
+            print("next_moves")
+            for x, y in zip(next_moves, future_log_p):
+                print(x, y)
+            for next_move in next_moves:
+                new_state = offense_strategy.get_successor_state(state, next_move)
+                sorting_pool.append((new_state, sequence + [next_move]))
+        sorting_pool = sorted(sorting_pool, key=lambda x: x[0].log_p)
+        sorting_pool = sorting_pool[:n_beam]
+        sequence_pool = []
+        for x in sorting_pool:
+            sequence_pool.append(x)
         time_step -= 1
-        state = offense_strategy.get_successor_state(state, move)
-        if time_step == 0:
-            break
-    time.sleep(10000)
+    for i, x in enumerate(sequence_pool):
+        print("sequence {}:".format(i+1))
+        for move in x[1]:
+            print(move)
