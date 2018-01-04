@@ -113,6 +113,9 @@ class Agent:
     def __init__(self, virtual_pos):
         self.virtual_pos = virtual_pos
 
+    def set_vpos(self, vpos):
+        self.virtual_pos = vpos
+
     def new_virtual_pos(self, virtual_pos_diff):
         return [self.virtual_pos[0] + virtual_pos_diff[0],
                 self.virtual_pos[1] + virtual_pos_diff[1]]
@@ -144,8 +147,8 @@ class State:
         self.n_agent = n_agent
         self.agents = []
         self.ball_agent_id = None
-        self.stand_place = None
-        self.stand_place_link = None
+        self.stand_place = []
+        self.stand_place_link = {}
         self.screen_one = []
         self.run_one = []
         self.log_p = 0
@@ -177,8 +180,7 @@ class State:
                     self.stand_place_link[str(pair[1])].append(pair[0])
         self.ball_agent_id = 0
 
-    def my_hard_copy(self):
-        new_state.agents = copy.deepcopy(self.agents)
+    def my_deep_copy(self):
         self.agents = copy.deepcopy(self.agents)
         self.screen_one = copy.deepcopy(self.screen_one)
         self.run_one = copy.deepcopy(self.run_one)
@@ -203,6 +205,9 @@ class State:
         """
         return self.virtual_actions
 
+    def move_agent_to(self, agent_id, vpos):
+        self.agents[agent_id].set_vpos(vpos)
+
     def get_successor_state(self, agent_id, move):
         agent = self.agents[agent_id]
         virtual_pos = agent.get_virtual_pos()
@@ -216,7 +221,7 @@ class State:
 
         #new_state = copy.deepcopy(self)
         new_state = copy.copy(self)
-        new_state.my_hard_copy()
+        new_state.my_deep_copy()
         #new_state.agents = copy.deepcopy(self.agents)
         if check:
             new_state.agents[agent_id].move(move)
@@ -293,27 +298,26 @@ class State:
                 return vpos
         return None
 
-    def draw(self, surf, palette, x_offset, y_offset, factor=1, link=False):
+    def draw(self, surf, palette, x_offset, y_offset, factor=1):
         # position
         real_pos = self.position.get_real_pos()
         for pos in real_pos:
             x = int(pos[0] * factor + x_offset)
             y = int(pos[1] * factor + y_offset)
-            pygame.draw.circle(surf, palette.black, [x, y], 2)
+            pygame.draw.circle(surf, (220, 220, 220), [x, y], 2)
 
         # link
-        if link:
-            for v1 in self.stand_place:
-                for v2 in self.stand_place_link[str(v1)]:
-                    real_pos = self.position.virtual_to_real(v1)
-                    x = int(real_pos[0] * factor + x_offset)
-                    y = int(real_pos[1] * factor + y_offset)
-                    surf_v1 = [x, y]
-                    real_pos = self.position.virtual_to_real(v2)
-                    x = int(real_pos[0] * factor + x_offset)
-                    y = int(real_pos[1] * factor + y_offset)
-                    surf_v2 = [x, y]
-                    pygame.draw.line(surf, palette.green, surf_v1, surf_v2, 2)
+        for v1 in self.stand_place:
+            for v2 in self.stand_place_link[str(v1)]:
+                real_pos = self.position.virtual_to_real(v1)
+                x = int(real_pos[0] * factor + x_offset)
+                y = int(real_pos[1] * factor + y_offset)
+                surf_v1 = [x, y]
+                real_pos = self.position.virtual_to_real(v2)
+                x = int(real_pos[0] * factor + x_offset)
+                y = int(real_pos[1] * factor + y_offset)
+                surf_v2 = [x, y]
+                pygame.draw.line(surf, palette.green, surf_v1, surf_v2, 2)
 
         # agent
         for i, agent in enumerate(self.agents):
