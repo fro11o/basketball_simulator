@@ -172,11 +172,11 @@ class Game:
         self.court_x_offset = 50
         self.court_y_offset = 50
 
-    def reset_surf(self, palette, court_lines, state):
+    def reset_surf(self, palette, court_lines, state, move=None):
         self.surf.fill(palette.white)
         for court_line in court_lines:
             court_line.draw(self.surf, palette, self.court_x_offset, self.court_y_offset, self.court_factor)
-        state.draw(self.surf, palette, self.court_x_offset, self.court_y_offset, self.court_factor)
+        state.draw(self.surf, palette, self.court_x_offset, self.court_y_offset, self.court_factor, move)
         pygame.draw.rect(self.surf, (200, 200, 200), self.start_button)
         pygame.display.update()
 
@@ -337,3 +337,11 @@ if __name__ == "__main__":
         print("sequence {}:".format(i+1))
         for move in x[1]:
             print(move)
+
+    time_step = args.time_step
+    state = copy.copy(initial_state)
+    for i, move in enumerate(sequence_pool[0][1]):
+        print("time_step", time_step)
+        game.reset_surf(palette, court_line, state, move=move)
+        state = offense_strategy.get_successor_state(state, move)
+        time.sleep(10)

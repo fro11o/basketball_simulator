@@ -298,7 +298,7 @@ class State:
                 return vpos
         return None
 
-    def draw(self, surf, palette, x_offset, y_offset, factor=1):
+    def draw(self, surf, palette, x_offset, y_offset, factor=1, move=None):
         # position
         real_pos = self.position.get_real_pos()
         for pos in real_pos:
@@ -346,4 +346,33 @@ class State:
                 agent_id_text = font.render(str(i), 1, (255, 255, 255))
                 surf.blit(agent_id_text, [x - int(r_agent / 2), y - int(r_agent / 2)])
 
+        def draw_line_between_agent(agent_id_1, agent_id_2, color):
+            v1 = self.get_agent_virtual_pos(agent_id_1)
+            v2 = self.get_agent_virtual_pos(agent_id_2)
+            draw_line_between_vpos(v1, v2, color)
 
+        def draw_line_between_vpos(v1, v2, color):
+            real_pos = self.position.virtual_to_real(v1)
+            x = int(real_pos[0] * factor + x_offset)
+            y = int(real_pos[1] * factor + y_offset)
+            surf_v1 = [x, y]
+            real_pos = self.position.virtual_to_real(v2)
+            x = int(real_pos[0] * factor + x_offset)
+            y = int(real_pos[1] * factor + y_offset)
+            surf_v2 = [x, y]
+            pygame.draw.line(surf, color, surf_v1, surf_v2, 2)
+
+        # move
+        if move is not None:
+            if len(move["pass"]) > 0:
+                for x in move["pass"]:
+                    agent_id_1 = x
+                    agent_id_2 = move["pass"][x]
+                draw_line_between_agent(agent_id_1, agent_id_2, (255, 255, 0))
+            for agent_id_1 in move["screen"]:
+                agent_id_2 = move["screen"][agent_id_1]
+                draw_line_between_agent(agent_id_1, agent_id_2, (0, 255, 255))
+            for agent_id_1 in move["go"]:
+                v1 = self.get_agent_virtual_pos(agent_id_1)
+                v2 = move["go"][agent_id_1]
+                draw_line_between_vpos(v1, v2, (255, 0, 255))
