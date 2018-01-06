@@ -321,6 +321,12 @@ class MotionOffense(Strategy):
                 continue
             if agent_id_1 in state.screen_one and agent_id_1 in move["go"]:
                 continue
+            check_screened = False
+            for t in move["screen"]:
+                if agent_id_1 == move["screen"][t]:
+                    check_screened = True
+            if check_screened:
+                continue
             # case 1.1 agent_id_1 choose to pass this round
             #new_move = copy.deepcopy(move)
             #new_white_list = copy.deepcopy(white_list)
@@ -394,9 +400,12 @@ class MotionOffense(Strategy):
                     log_p += math.log(self.p_unscreen)
         return log_p
 
-    def get_successor_state(self, state, move):
+    def get_successor_state(self, state, move=None):
+
         new_state = copy.copy(state)
         new_state.my_deep_copy()
+        if move is None:
+            return new_state
         """
         self.agents = copy.deepcopy(self.agents)
         self.screen_one = copy.deepcopy(self.screen_one)

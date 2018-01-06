@@ -298,7 +298,7 @@ class State:
                 return vpos
         return None
 
-    def draw(self, surf, palette, x_offset, y_offset, factor=1, move=None):
+    def draw(self, surf, palette, x_offset, y_offset, factor=1, move=None, surf_xy=None):
         # position
         real_pos = self.position.get_real_pos()
         for pos in real_pos:
@@ -319,19 +319,33 @@ class State:
                 surf_v2 = [x, y]
                 pygame.draw.line(surf, palette.green, surf_v1, surf_v2, 2)
 
+        if surf_xy is None:
+            surf_xy = {}
+            for i, agent in enumerate(self.agents):
+                if agent is None:
+                    continue
+                virtual_pos = agent.get_virtual_pos()
+                real_pos = self.position.virtual_to_real(virtual_pos)
+                x = int(real_pos[0] * factor + x_offset)
+                y = int(real_pos[1] * factor + y_offset)
+                surf_xy[i] = [x, y]
+
         # agent
         for i, agent in enumerate(self.agents):
             if agent is None:
                 continue
+            """
             virtual_pos = agent.get_virtual_pos()
             real_pos = self.position.virtual_to_real(virtual_pos)
             x = int(real_pos[0] * factor + x_offset)
             y = int(real_pos[1] * factor + y_offset)
+            """
+            x, y = surf_xy[i]
             r_agent = int(1. * self.position.get_real_distance() / 2 * factor)
             if i < self.n_agent / 2:
                 if i == self.ball_agent_id:  # draw ball_agent_id
                     pygame.draw.circle(surf, palette.red, [x, y], r_agent)
-                    pygame.draw.circle(surf, palette.white, [x, y], r_agent - 2)
+                    pygame.draw.circle(surf, (255, 128, 0), [x, y], r_agent - 2)
                     font = pygame.font.Font(None, 24)
                     agent_id_text = font.render(str(i), 1, (0, 0, 0))
                     surf.blit(agent_id_text, [x - int(r_agent / 2), y - int(r_agent / 2)])
@@ -346,6 +360,7 @@ class State:
                 agent_id_text = font.render(str(i), 1, (255, 255, 255))
                 surf.blit(agent_id_text, [x - int(r_agent / 2), y - int(r_agent / 2)])
 
+        """
         def draw_line_between_agent(agent_id_1, agent_id_2, color):
             v1 = self.get_agent_virtual_pos(agent_id_1)
             v2 = self.get_agent_virtual_pos(agent_id_2)
@@ -361,18 +376,103 @@ class State:
             y = int(real_pos[1] * factor + y_offset)
             surf_v2 = [x, y]
             pygame.draw.line(surf, color, surf_v1, surf_v2, 2)
+        """
 
+        def get_length(dx, dy):
+            return pow(pow(dx, 2) + pow(dy, 2), 0.5)
+
+        def get_unit_vector(dx, dy):
+            l = get_length(dx, dy)
+            return [dx / l, dy / l]
+
+        def rotate(dx, dy, angle):
+            new_dx = math.cos(angle) * dx - math.sin(angle) * dy
+            new_dy = math.sin(angle) * dx + math.cos(angle) * dy
+            return [new_dx, new_dy]
+
+        def draw_screen_line(surf_v1, surf_v2, color):
+            """
+            real_pos = self.position.virtual_to_real(v1)
+            x = int(real_pos[0] * factor + x_offset)
+            y = int(real_pos[1] * factor + y_offset)
+            surf_v1 = [x, y]
+            real_pos = self.position.virtual_to_real(v2)
+            x = int(real_pos[0] * factor + x_offset)
+            y = int(real_pos[1] * factor + y_offset)
+            surf_v2 = [x, y]
+            """
+            surf_dx = surf_v2[0] - surf_v1[0]
+            surf_dy = surf_v2[1] - surf_v1[1]
+            margin = r_agent
+            surf_dx = int(surf_dx * (get_length(surf_dx, surf_dy) - r_agent - margin) / get_length(surf_dx, surf_dy))
+            surf_dy = int(surf_dy * (get_length(surf_dx, surf_dy) - r_agent - margin) / get_length(surf_dx, surf_dy))
+            new_surf_v2 = [surf_v1[0] + surf_dx,
+                           surf_v1[1] + surf_dy]
+            pygame.draw.line(surf, color, surf_v1, new_surf_v2, 2)
+            r_unit_vector = get_unit_vector(surf_v1[0] - new_surf_v2[0],
+                                            surf_v1[1] - new_surf_v2[1])
+            av = rotate(r_unit_vector[0], r_unit_vector[1], math.pi / 2)
+            av = [int(new_surf_v2[0] + av[0] * r_agent), int(new_surf_v2[1] + av[1] * r_agent)]
+            pygame.draw.line(surf, color, new_surf_v2, av, 4)
+            av = rotate(r_unit_vector[0], r_unit_vector[1], -math.pi / 2)
+            av = [int(new_surf_v2[0] + av[0] * r_agent), int(new_surf_v2[1] + av[1] * r_agent)]
+            pygame.draw.line(surf, color, new_surf_v2, av, 4)
+            return new_surf_v2
+
+        def draw_go_line(surf_v1, surf_v2, color):
+            """
+            real_pos = self.position.virtual_to_real(v1)
+            x = int(real_pos[0] * factor + x_offset)
+            y = int(real_pos[1] * factor + y_offset)
+            surf_v1 = [x, y]
+            real_pos = self.position.virtual_to_real(v2)
+            x = int(real_pos[0] * factor + x_offset)
+            y = int(real_pos[1] * factor + y_offset)
+            surf_v2 = [x, y]
+            """
+            surf_dx = surf_v2[0] - surf_v1[0]
+            surf_dy = surf_v2[1] - surf_v1[1]
+            margin = r_agent
+            surf_dx = int(surf_dx * (get_length(surf_dx, surf_dy) - r_agent - margin) / get_length(surf_dx, surf_dy))
+            surf_dy = int(surf_dy * (get_length(surf_dx, surf_dy) - r_agent - margin) / get_length(surf_dx, surf_dy))
+            new_surf_v2 = [surf_v1[0] + surf_dx,
+                           surf_v1[1] + surf_dy]
+            pygame.draw.line(surf, color, surf_v1, new_surf_v2, 2)
+            r_unit_vector = get_unit_vector(surf_v1[0] - new_surf_v2[0],
+                                            surf_v1[1] - new_surf_v2[1])
+            av = rotate(r_unit_vector[0], r_unit_vector[1], math.pi / 4)
+            av = [int(new_surf_v2[0] + av[0] * r_agent), int(new_surf_v2[1] + av[1] * r_agent)]
+            pygame.draw.line(surf, color, new_surf_v2, av, 6)
+            av = rotate(r_unit_vector[0], r_unit_vector[1], -math.pi / 4)
+            av = [int(new_surf_v2[0] + av[0] * r_agent), int(new_surf_v2[1] + av[1] * r_agent)]
+            pygame.draw.line(surf, color, new_surf_v2, av, 6)
+
+        new_surf_xy = copy.deepcopy(surf_xy)
         # move
         if move is not None:
             if len(move["pass"]) > 0:
                 for x in move["pass"]:
                     agent_id_1 = x
                     agent_id_2 = move["pass"][x]
-                draw_line_between_agent(agent_id_1, agent_id_2, (255, 255, 0))
+                v1 = self.get_agent_virtual_pos(agent_id_1)
+                v2 = self.get_agent_virtual_pos(agent_id_2)
+                #draw_go_line(v1, v2, (255, 100, 100))
+                draw_go_line(surf_xy[agent_id_1], surf_xy[agent_id_2], (255, 128, 0))
             for agent_id_1 in move["screen"]:
                 agent_id_2 = move["screen"][agent_id_1]
-                draw_line_between_agent(agent_id_1, agent_id_2, (0, 255, 255))
+                v1 = self.get_agent_virtual_pos(agent_id_1)
+                v2 = self.get_agent_virtual_pos(agent_id_2)
+                #draw_screen_line(v1, v2, (0, 0, 0))
+                tmp = draw_screen_line(surf_xy[agent_id_1], surf_xy[agent_id_2], (255, 0, 0))
+                new_surf_xy[agent_id_1] = tmp
             for agent_id_1 in move["go"]:
                 v1 = self.get_agent_virtual_pos(agent_id_1)
                 v2 = move["go"][agent_id_1]
-                draw_line_between_vpos(v1, v2, (255, 0, 255))
+                #draw_go_line(v1, v2, (0, 0, 0))
+                real_pos = self.position.virtual_to_real(v2)
+                x = int(real_pos[0] * factor + x_offset)
+                y = int(real_pos[1] * factor + y_offset)
+                draw_go_line(surf_xy[agent_id_1], [x, y], (255, 0, 0))
+                new_surf_xy[agent_id_1] = [x, y]
+
+        return new_surf_xy

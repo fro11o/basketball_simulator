@@ -68,6 +68,7 @@ class Paint(CourtLine):
         self.lines.append(([9.95, 14], [5.05, 14]))
         self.lines.append(([5.05, 14], [5.05, 8.2]))
         self.arcs.append(([5.7, 6.4, 3.6, 3.6], 0, math.pi))
+        self.arcs.append(([5.7, 10.625, 3.6, 3.6], 0, math.pi))
 
 
 class ThreePointLine(CourtLine):
@@ -168,23 +169,44 @@ class Game:
         pygame.init()
         self.surf = pygame.display.set_mode((800, 600))
         self.start_button = [500, 500, 100, 50]
+        self.left_button = [600, 300, 50, 30]
+        self.right_button = [700, 300, 50, 30]
         self.court_factor = 30
         self.court_x_offset = 50
         self.court_y_offset = 50
 
-    def reset_surf(self, palette, court_lines, state, move=None):
+    def reset_surf(self, palette, court_lines, state, move=None, surf_xy=None):
         self.surf.fill(palette.white)
         for court_line in court_lines:
             court_line.draw(self.surf, palette, self.court_x_offset, self.court_y_offset, self.court_factor)
-        state.draw(self.surf, palette, self.court_x_offset, self.court_y_offset, self.court_factor, move)
+        new_surf_xy = state.draw(self.surf, palette, self.court_x_offset, self.court_y_offset, self.court_factor, move, surf_xy)
         pygame.draw.rect(self.surf, (200, 200, 200), self.start_button)
+        pygame.draw.rect(self.surf, (200, 200, 200), self.left_button)
+        pygame.draw.rect(self.surf, (200, 200, 200), self.right_button)
         pygame.display.update()
+        return new_surf_xy
 
     def is_start_button(self, pos):
         check = True
         if pos[0] < self.start_button[0] or pos[0] > self.start_button[0] + self.start_button[2]:
             check = False
         if pos[1] < self.start_button[1] or pos[1] > self.start_button[1] + self.start_button[3]:
+            check = False
+        return check
+
+    def is_left_button(self, pos):
+        check = True
+        if pos[0] < self.left_button[0] or pos[0] > self.left_button[0] + self.left_button[2]:
+            check = False
+        if pos[1] < self.left_button[1] or pos[1] > self.left_button[1] + self.left_button[3]:
+            check = False
+        return check
+
+    def is_right_button(self, pos):
+        check = True
+        if pos[0] < self.right_button[0] or pos[0] > self.right_button[0] + self.right_button[2]:
+            check = False
+        if pos[1] < self.right_button[1] or pos[1] > self.right_button[1] + self.right_button[3]:
             check = False
         return check
 
@@ -286,6 +308,27 @@ def get_vpos_start(game, state):
             break
 
 
+def interact(game, palette, court_line, final_data):
+    time_step = 0
+    while True:
+        mouse_clicked = False
+        check_ready = False
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == MOUSEBUTTONUP:
+                mouse_x, mouse_y = event.pos
+                if game.is_left_button([mouse_x, mouse_y]):
+                    time_step -= 1
+                elif game.is_right_button([mouse_x, mouse_y]):
+                    time_step += 1
+        time_step = max(time_step, 0)
+        time_step = min(time_step, len(final_data) - 1)
+        state, move, surf_xy = final_data[time_step]
+        _ = game.reset_surf(palette, court_line, state, move=move, surf_xy=surf_xy)
+
+
 if __name__ == "__main__":
     args = get_args()
 
@@ -338,10 +381,19 @@ if __name__ == "__main__":
         for move in x[1]:
             print(move)
 
-    time_step = args.time_step
+    final_data = []
     state = copy.copy(initial_state)
+    surf_xy = None
     for i, move in enumerate(sequence_pool[0][1]):
-        print("time_step", time_step)
-        game.reset_surf(palette, court_line, state, move=move)
+        final_data.append((offense_strategy.get_successor_state(state), None, copy.deepcopy(surf_xy)))
+        _ = game.reset_surf(palette, court_line, state, move=None, surf_xy=surf_xy)
+        #time.sleep(5)
+        final_data.append((offense_strategy.get_successor_state(state), copy.deepcopy(move), copy.deepcopy(surf_xy)))
+        surf_xy = game.reset_surf(palette, court_line, state, move=move, surf_xy=surf_xy)
+        print("QQ", surf_xy)
         state = offense_strategy.get_successor_state(state, move)
-        time.sleep(10)
+        #time.sleep(5)
+    final_data.append((offense_strategy.get_successor_state(state), None, copy.deepcopy(surf_xy)))
+    _ = game.reset_surf(palette, court_line, state, move=None, surf_xy=surf_xy)
+
+    interact(game, palette, court_line, final_data)
