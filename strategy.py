@@ -133,10 +133,10 @@ class Oneonone(Strategy):
 
 
 class MotionOffense(Strategy):
-    def __init__(self, p_screen, p_unscreen):
+    def __init__(self):
         super().__init__()
-        self.p_screen = p_screen
-        self.p_unscreen = p_unscreen
+        self.p_screen = 0.2  # prob that defense_agent could catch up
+        self.p_unscreen = 0.8  # prob that defense_agent could catch up under screen
 
     def next_move(self, state, time_step, search_depth, n_beam):
         """
@@ -158,9 +158,12 @@ class MotionOffense(Strategy):
         moves: list(move structure), len=n_beam
             move that could lead to smallest log_p
         """
-        def get_best_log_p(state, t):
+        def get_best_log_p(state, t, cur_baseline=None):
             if t == 0:
-                return None, state.log_p
+                return state.log_p
+            if cur_baseline is not None and t == 1:
+                if state.log_p + len(state.run_one) * math.log(self.p_screen) + (int(state.n_agent / 2) - 1 - len(state.run_one)) * math.log(self.p_unscreen) > cur_baseline:
+                    return state.log_p
             moves = self.get_step_1_moves(state)
             moves = self.refine_possible_moves(state, moves)
             best_move = None
@@ -177,10 +180,17 @@ class MotionOffense(Strategy):
         moves = self.refine_possible_moves(state, moves)
         print("len(moves)", len(moves))
         cands = []
+        cur_baseline = None
         for move in moves:
             new_state = self.get_successor_state(state, move)
-            new_log_p = get_best_log_p(new_state, min(time_step - 1, search_depth - 1))
-            cands.append((move, new_log_p))
+            new_log_p = get_best_log_p(new_state, min(time_step - 1, search_depth - 1), cur_baseline)
+            if len(cands) < n_beam:
+                cands.append((move, new_log_p))
+            else:
+                if new_log_p < cands[-1][1]:
+                    cands[-1] = (move, new_log_p)
+                cands = sorted(cands, key=itemgetter(1))
+                cur_baseline = cands[-1][1]
         cands = sorted(cands, key=itemgetter(1))
         cands_moves = [x[0] for x in cands]
         cands_future_log_p = [x[1] for x in cands]
@@ -208,10 +218,17 @@ class MotionOffense(Strategy):
                 continue
             white_list.add(agent_id)
 
+        # build occupy_list and screen_list
+        occupy_list = set()
+
         # case 1: not pass
-        new_move = copy.deepcopy(move)
-        new_white_list = copy.deepcopy(white_list)
-        ret.extend(self.get_step_2_moves(state, new_move, new_white_list, set()))
+        #new_move = copy.deepcopy(move)
+        #new_white_list = copy.deepcopy(white_list)
+        ball_agent_id = state.ball_agent_id
+        v1 = state.get_agent_virtual_pos(ball_agent_id)
+        new_occupy_list = copy.deepcopy(occupy_list)
+        new_occupy_list.add(str(v1))
+        ret.extend(self.get_step_2_moves(state, move, white_list, set(), new_occupy_list))
         # case 2: find if someone could pass
         ball_agent_id = state.ball_agent_id
         v1 = state.get_agent_virtual_pos(ball_agent_id)
@@ -225,10 +242,12 @@ class MotionOffense(Strategy):
                 new_white_list = copy.deepcopy(white_list)
                 new_white_list.add(ball_agent_id)
                 new_white_list.remove(agent_id)
-                ret.extend(self.get_step_2_moves(state, new_move, new_white_list, set()))
+                new_occupy_list = copy.deepcopy(occupy_list)
+                new_occupy_list.add(str(v2))
+                ret.extend(self.get_step_2_moves(state, new_move, new_white_list, set(), new_occupy_list))
         return ret
 
-    def get_step_2_moves(self, state, move, white_list, pass_list):
+    def get_step_2_moves(self, state, move, white_list, pass_list, occupy_list):
         ret = []
         further_search = False
         # case 1: find one agent to screen
@@ -236,11 +255,11 @@ class MotionOffense(Strategy):
             if agent_id_1 in pass_list:
                 continue
             # case 1.1 agent_id_1 choose to pass this round
-            new_move = copy.deepcopy(move)
-            new_white_list = copy.deepcopy(white_list)
+            #new_move = copy.deepcopy(move)
+            #new_white_list = copy.deepcopy(white_list)
             new_pass_list = copy.deepcopy(pass_list)
             new_pass_list.add(agent_id_1)
-            ret.extend(self.get_step_2_moves(state, new_move, new_white_list, new_pass_list))
+            ret.extend(self.get_step_2_moves(state, move, white_list, new_pass_list, occupy_list))
             further_search = True
             # case 1.2 agent_id_1 screen for someone
             for agent_id_2 in white_list:
@@ -250,13 +269,17 @@ class MotionOffense(Strategy):
                 v2 = state.get_agent_virtual_pos(agent_id_2)
                 if v2 not in state.stand_place_link[str(v1)]:
                     continue
+                if str(v2) in occupy_list:
+                    continue
                 new_move = copy.deepcopy(move)
                 new_move["screen"][agent_id_1] = agent_id_2
                 new_white_list = copy.deepcopy(white_list)
                 new_white_list.remove(agent_id_1)
                 new_white_list.remove(agent_id_2)
-                new_pass_list = copy.deepcopy(pass_list)
-                ret.extend(self.get_step_2_moves(state, new_move, new_white_list, new_pass_list))
+                #new_pass_list = copy.deepcopy(pass_list)
+                new_occupy_list = copy.deepcopy(occupy_list)
+                new_occupy_list.add(str(v2))
+                ret.extend(self.get_step_2_moves(state, new_move, new_white_list, pass_list, new_occupy_list))
                 further_search = True
             # state.screen_one could also be agent_id_2
             for agent_id_2 in state.screen_one:
@@ -268,22 +291,26 @@ class MotionOffense(Strategy):
                 v2 = state.get_agent_virtual_pos(agent_id_2)
                 if v2 not in state.stand_place_link[str(v1)]:
                     continue
+                if str(v2) in occupy_list:
+                    continue
                 new_move = copy.deepcopy(move)
                 new_move["screen"][agent_id_1] = agent_id_2
                 new_white_list = copy.deepcopy(white_list)
                 new_white_list.remove(agent_id_1)
-                new_pass_list = copy.deepcopy(pass_list)
-                ret.extend(self.get_step_2_moves(state, new_move, new_white_list, new_pass_list))
+                #new_pass_list = copy.deepcopy(pass_list)
+                new_occupy_list = copy.deepcopy(occupy_list)
+                new_occupy_list.add(str(v2))
+                ret.extend(self.get_step_2_moves(state, new_move, new_white_list, pass_list, new_occupy_list))
                 further_search = True
             break
         if further_search:
             return ret
         else:
-            new_move = copy.deepcopy(move)
-            new_white_list = copy.deepcopy(white_list)
-            return self.get_step_3_moves(state, new_move, new_white_list, set())
+            #new_move = copy.deepcopy(move)
+            #new_white_list = copy.deepcopy(white_list)
+            return self.get_step_3_moves(state, move, white_list, set(), occupy_list)
 
-    def get_step_3_moves(self, state, move, white_list, pass_list):
+    def get_step_3_moves(self, state, move, white_list, pass_list, occupy_list):
         ret = []
         further_search = False
         # casee 1: find one agent to go
@@ -295,22 +322,26 @@ class MotionOffense(Strategy):
             if agent_id_1 in state.screen_one and agent_id_1 in move["go"]:
                 continue
             # case 1.1 agent_id_1 choose to pass this round
-            new_move = copy.deepcopy(move)
-            new_white_list = copy.deepcopy(white_list)
+            #new_move = copy.deepcopy(move)
+            #new_white_list = copy.deepcopy(white_list)
             new_pass_list = copy.deepcopy(pass_list)
             new_pass_list.add(agent_id_1)
-            ret.extend(self.get_step_3_moves(state, new_move, new_white_list, new_pass_list))
+            ret.extend(self.get_step_3_moves(state, move, white_list, new_pass_list, occupy_list))
             further_search = True
             # case 1.2 agent_id_1 choose to run
             v1 = state.get_agent_virtual_pos(agent_id_1)
             for v2 in state.stand_place_link[str(v1)]:
+                if str(v2) in occupy_list:
+                    continue
                 new_move = copy.deepcopy(move)
                 new_move["go"][agent_id_1] = v2
                 new_white_list = copy.deepcopy(white_list)
                 if agent_id_1 in new_white_list:
                     new_white_list.remove(agent_id_1)
-                new_pass_list = copy.deepcopy(pass_list)
-                ret.extend(self.get_step_3_moves(state, new_move, new_white_list, new_pass_list))
+                #new_pass_list = copy.deepcopy(pass_list)
+                new_occupy_list = copy.deepcopy(occupy_list)
+                new_occupy_list.add(str(v2))
+                ret.extend(self.get_step_3_moves(state, new_move, new_white_list, pass_list, new_occupy_list))
                 further_search = True
             break
         if further_search:

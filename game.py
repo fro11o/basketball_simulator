@@ -247,8 +247,9 @@ def get_vpos_start(game, state):
             elif event.type == MOUSEBUTTONUP:
                 mouse_x, mouse_y = event.pos
                 if game.is_start_button([mouse_x, mouse_y]) and\
-                len(vpos_start_offense) == int(state.n_agent / 2) and\
-                len(vpos_start_defense) == int(state.n_agent / 2):
+                   len(vpos_start_offense) == int(state.n_agent / 2):
+                #len(vpos_start_offense) == int(state.n_agent / 2) and\
+                #len(vpos_start_defense) == int(state.n_agent / 2):
                     check_ready = True
                     break
                 rx = mouse_x
@@ -291,52 +292,27 @@ if __name__ == "__main__":
     palette = MyColor()
     game = Game()
     court_line = [Baseline(), Basket(), Paint(), ThreePointLine()]
-    state = State(court_line[0].get_rect(),
-                  court_line[1].get_basket()[0],
-                  court_line[1].get_basket()[1],
-                  factor=0.9,
-                  n_agent=args.n_agent)
+    initial_state = State(court_line[0].get_rect(),
+                          court_line[1].get_basket()[0],
+                          court_line[1].get_basket()[1],
+                          factor=0.9,
+                          n_agent=args.n_agent)
 
-    game.reset_surf(palette, court_line, state)
+    game.reset_surf(palette, court_line, initial_state)
 
-    get_vpos_link(game, state)
-    get_vpos_start(game, state)
-
-    p_screen = 0.2  # prob that defense_agent could catch up
-    p_unscreen = 0.8  # prob that defense_agent could catch up under screen
+    get_vpos_link(game, initial_state)
+    get_vpos_start(game, initial_state)
 
     #defense_strategy = Brownian()
     defense_strategy = MotionDefense()
     #offense_strategy = Brownian()
-    offense_strategy = MotionOffense(p_screen, p_unscreen)
+    offense_strategy = MotionOffense()
 
-    """
-    while True:
-        moves = []
-        # offense strategy
-
-        for agent_id in range(state.n_agent):
-            if agent_id >= int(state.get_agent_number() / 2):
-                continue
-            move = offense_strategy.next_move(agent_id, state)
-            moves.append(move)
-        # defense strategy
-        for agent_id in range(state.n_agent):
-            if agent_id < int(state.get_agent_number() / 2):
-                continue
-            move = defense_strategy.next_move(agent_id, state)
-            moves.append(move)
-        game.reset_surf(palette, court_line, state)
-        time.sleep(0.5)
-        # get new state after moves sequence
-        for i in range(state.n_agent):
-            state = state.get_successor_state(i, moves[i])
-    """
     time_step = args.time_step
     search_depth = 2
     n_beam = 3
 
-    sequence_pool = [(state, [])]
+    sequence_pool = [(initial_state, [])]
 
     while time_step > 0:
         print("time_step", time_step)
