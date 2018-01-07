@@ -195,6 +195,10 @@ def get_args():
                         help="# of agent (6 or 10)")
     parser.add_argument("--time_step", type=int, default=2,
                         help="search depth")
+    parser.add_argument("--num_sims", type=int, default=1000,
+                        help="# of MCTS simulations from root")
+    parser.add_argument("--mcts_scalar", type=float, default=1/math.sqrt(2.0),
+                        help="scalar to control exploitation-exploration balance")
     return parser.parse_args()
 
 
@@ -305,10 +309,16 @@ if __name__ == "__main__":
     p_screen = 0.2  # prob that defense_agent could catch up
     p_unscreen = 0.8  # prob that defense_agent could catch up under screen
 
+    # parameters for MCTS strategy
+    num_sims = args.num_sims
+    mcts_scalar = args.mcts_scalar
+
     #defense_strategy = Brownian()
     defense_strategy = MotionDefense()
     #offense_strategy = Brownian()
-    offense_strategy = MotionOffense(p_screen, p_unscreen)
+#    offense_strategy = MotionOffense(p_screen, p_unscreen)
+    # MCTS strategy
+    offense_strategy = MCTSMotionOffense(p_screen, p_unscreen, num_sims, mcts_scalar)
 
     """
     while True:
